@@ -1,0 +1,8 @@
+{
+  "appId": "com.authtool.app",
+  "appName": "授权工具",
+  "webDir": "src",
+  "server": {
+    "androidScheme": "https"
+  }
+}
