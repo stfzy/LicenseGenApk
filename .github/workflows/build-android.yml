@@ -26,13 +26,59 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm install          # ← 改掉 npm ci
+        run: npm install
 
       - name: Add Capacitor Android platform
         run: npx cap add android || echo "already exists"
 
       - name: Capacitor copy
         run: npx cap copy android
+
+      - name: Create MainActivity
+        run: |
+          mkdir -p android/app/src/main/java/com/authtool/app
+          cat > android/app/src/main/java/com/authtool/app/MainActivity.java << 'EOF'
+          package com.authtool.app;
+
+          import android.os.Bundle;
+          import android.os.Environment;
+          import android.webkit.WebView;
+          import android.widget.Toast;
+          import android.util.Base64;
+          import com.getcapacitor.BridgeActivity;
+          import java.io.File;
+          import java.io.FileOutputStream;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  WebView webView = getBridge().getWebView();
+                  webView.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) -> {
+                      if (url.startsWith("data:")) {
+                          String base64 = url.substring(url.indexOf(",") + 1);
+                          byte[] data = Base64.decode(base64, Base64.DEFAULT);
+                          try {
+                              File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                              if (!downloadsDir.exists()) { downloadsDir.mkdirs(); }
+                              File file = new File(downloadsDir, "license.license");
+                              FileOutputStream fos = new FileOutputStream(file);
+                              fos.write(data);
+                              fos.close();
+                              runOnUiThread(() -> Toast.makeText(this, "已保存到下载目录", Toast.LENGTH_SHORT).show());
+                          } catch (Exception e) {
+                              runOnUiThread(() -> Toast.makeText(this, "保存失败: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                          }
+                      }
+                  });
+              }
+          }
+          EOF
+
+      - name: Patch AndroidManifest
+        run: |
+          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />|' \
+          android/app/src/main/AndroidManifest.xml
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
