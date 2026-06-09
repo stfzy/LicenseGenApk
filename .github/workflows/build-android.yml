@@ -26,38 +26,16 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install          # ← 改掉 npm ci
 
-      - name: Install Capacitor Android platform
-        run: npx cap add android || echo "android platform already exists"
+      - name: Add Capacitor Android platform
+        run: npx cap add android || echo "already exists"
 
       - name: Capacitor copy
         run: npx cap copy android
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
-
-      - name: Decode keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.jks
-
-      - name: Build release APK
-        run: cd android && ./gradlew assembleRelease
-        env:
-          SIGNING_STORE_FILE: release.jks
-          SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-
-      - name: Sign release APK
-        run: |
-          jarsigner \
-            -keystore android/app/release.jks \
-            -storepass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -keypass "${{ secrets.KEY_PASSWORD }}" \
-            -signedjar android/app/build/outputs/apk/release/app-release-signed.apk \
-            android/app/build/outputs/apk/release/app-release-unsigned.apk \
-            "${{ secrets.KEY_ALIAS }}"
 
       - name: Build debug APK
         run: cd android && ./gradlew assembleDebug
@@ -67,11 +45,4 @@ jobs:
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 7
-
-      - name: Upload release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release
-          path: android/app/build/outputs/apk/release/app-release-signed.apk
           retention-days: 7
